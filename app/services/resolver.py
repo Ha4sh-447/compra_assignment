@@ -39,6 +39,4 @@ def resolve_target(
                 return element
 
     return None
-
-# def resolver(layout:LayoutState, target: str) -> LayoutCommand:
     

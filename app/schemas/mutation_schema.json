@@ -1,0 +1,73 @@
+{
+  "name": "mutate_layout",
+  "description": "Apply mutations to the design layout JSON. Each mutation targets a specific node by ID and changes its position, size, or font properties. For canvas resizing, set canvas_width and canvas_height.",
+  "parameters": {
+    "type": "object",
+    "required": ["operation", "reasoning", "mutations"],
+    "properties": {
+      "operation": {
+        "type": "string",
+        "enum": [
+          "resize_canvas",
+          "reposition",
+          "resize_element",
+          "scale_element",
+          "group_move",
+          "reorder_z",
+          "style_change"
+        ],
+        "description": "The type of layout operation being performed."
+      },
+      "reasoning": {
+        "type": "string",
+        "description": "Brief explanation of what changes are being made and why."
+      },
+      "mutations": {
+        "type": "array",
+        "description": "List of per-node mutations to apply.",
+        "items": {
+          "type": "object",
+          "required": ["node_id"],
+          "properties": {
+            "node_id": {
+              "type": "string",
+              "description": "The ID of the node to mutate. Must be from the valid node ID list."
+            },
+            "x": {
+              "type": "number",
+              "description": "New absolute x position (pixels)."
+            },
+            "y": {
+              "type": "number",
+              "description": "New absolute y position (pixels)."
+            },
+            "width": {
+              "type": "number",
+              "description": "New width (pixels). Must be > 0."
+            },
+            "height": {
+              "type": "number",
+              "description": "New height (pixels). Must be > 0."
+            },
+            "fontSize": {
+              "type": "number",
+              "description": "New font size (pixels). Range: 8–200."
+            },
+            "fontSizeRatio": {
+              "type": "number",
+              "description": "New font size ratio (fontSize / canvasHeight)."
+            }
+          }
+        }
+      },
+      "canvas_width": {
+        "type": "integer",
+        "description": "New canvas width (only for resize_canvas operation)."
+      },
+      "canvas_height": {
+        "type": "integer",
+        "description": "New canvas height (only for resize_canvas operation)."
+      }
+    }
+  }
+}

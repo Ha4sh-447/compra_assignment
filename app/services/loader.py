@@ -1,6 +1,7 @@
 import json
 
 from app.models.layout import LayoutElement, LayoutState
+from app.services.annotator import annotate_roles, build_element_descriptors
 
 
 def load_layout(path: str) -> LayoutState:
@@ -22,39 +23,43 @@ def load_layout(path: str) -> LayoutState:
             canvas_height = node["height"]
 
         element = LayoutElement(
-            id=node["id"],
+            id=node.get("id"),
             node_id = node_id, 
-            type=node["type"],
+            type=node.get("type"),
 
-            x=node["x"],
+            x=node.get("x"),
             nx=node.get("nx", 0.0),
-            y=node["y"],
+            y=node.get("y"),
             ny=node.get("ny", 0.0),
 
-            width=node["width"],
+            width=node.get("width"),
             nw=node.get("nw", 0.0),
-            height=node["height"],
+            height=node.get("height"),
             nh=node.get("nh", 0.0),
 
             name=node.get("name"),
             parentId=node.get("parentId"),
 
             style=node.get("style", {}),
-            data=node.get("data", {})
+            data=node.get("data", {}),
+
+            fontSizeRatio=node.get("fontSizeRatio"),
+            children=node.get("children"),
         )
 
         elements.append(element)
 
-    return LayoutState(
+    layout = LayoutState(
         canvas_width=canvas_width,
         canvas_height=canvas_height,
         elements=elements
     )
 
-def get_element_map(layout: LayoutState) -> dict[str, str]:
-    element_map = {}
+    layout = annotate_roles(layout)
 
-    for element in layout.elements:
-        text = element.name + element.type + element.data.get("content", "") + element.data.get("cover", "")
-        element_map[element.id] = text
-    return element_map
+    return layout
+
+
+def get_element_map(layout: LayoutState) -> dict[str, str]:
+    """Build a node_id → descriptor map including semantic roles."""
+    return build_element_descriptors(layout)

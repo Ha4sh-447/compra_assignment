@@ -1,13 +1,16 @@
 from typing import Optional
 from pydantic import BaseModel
 
-class LayoutCommand(BaseModel):
-    action: str
+from app.models.mutation import MutateLayoutCall
+from app.models.layout import LayoutState
 
-    target: Optional[str] = None
 
-    direction: Optional[str] = None
-
-    changeValue: Optional[str] = None
-
-    aspect_ratio: Optional[str] = None
+class AgentResponse(BaseModel):
+    """Response envelope from the layout agent."""
+    status: str                  # "success" | "clarification" | "error"
+    message: str                 # chat message to show user
+    mutation: Optional[MutateLayoutCall] = None
+    layout: Optional[LayoutState] = None
+    model_used: Optional[str] = None
+    system_prompt: Optional[str] = None
+    raw_response: Optional[dict] = None

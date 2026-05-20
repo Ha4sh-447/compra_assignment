@@ -25,6 +25,13 @@ class LayoutElement(BaseModel):
     data: Optional[Dict[str, Any]] = {}
     style: Optional[Dict[str, Any]] = {}
 
+    fontSizeRatio: Optional[float] = None
+    children: Optional[list[str]] = None
+
+    semanticRole: Optional[str] = None
+    groupId: Optional[str] = None
+    locked: bool = False
+
 class LayoutState(BaseModel):
     canvas_width: int
     canvas_height: int
