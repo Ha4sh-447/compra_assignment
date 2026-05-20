@@ -82,6 +82,7 @@ export async function getLayout(sessionId?: string): Promise<{ session_id: strin
 }
 
 export interface TraceItem {
+  id?: string;
   timestamp: string;
   latency_ms: number;
   model: string;

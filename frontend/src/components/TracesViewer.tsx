@@ -1,41 +1,49 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getTraces, clearTraces } from '../lib/api';
 import type { TraceItem } from '../lib/api';
 
 export default function TracesViewer() {
   const [traces, setTraces] = useState<TraceItem[]>([]);
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
 
-  const loadTraces = async () => {
+  // Keep the ref in sync so the polling callback always has the latest value
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  const loadTraces = useCallback(async () => {
     try {
       const data = await getTraces();
       setTraces(data);
-      if (data.length > 0 && selectedIdx === null) {
-        setSelectedIdx(0);
+      // Only auto-select the first trace when nothing is selected yet
+      if (data.length > 0 && selectedIdRef.current === null) {
+        const firstId = data[0].id || 'fallback-0';
+        setSelectedId(firstId);
       }
     } catch (err) {
       console.error('Failed to load traces', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadTraces();
     const interval = setInterval(loadTraces, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadTraces]);
 
   const handleClear = async () => {
     if (!window.confirm('Are you sure you want to clear trace history?')) return;
     try {
       await clearTraces();
       setTraces([]);
-      setSelectedIdx(null);
+      setSelectedId(null);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const selected = selectedIdx !== null && traces[selectedIdx] ? traces[selectedIdx] : null;
+  const selected = selectedId !== null ? traces.find(t => (t.id || 'fallback-0') === selectedId) : null;
 
   return (
     <div className="json-viewer-container" style={{ height: '360px' }}>
@@ -76,13 +84,14 @@ export default function TracesViewer() {
             traces.map((t, idx) => {
               const date = new Date(t.timestamp);
               const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-              const isSelected = selectedIdx === idx;
+              const traceId = t.id || `fallback-${idx}`;
+              const isSelected = selectedId === traceId;
               const hasToolCall = !!t.raw_response?.tool_calls;
 
               return (
                 <div
-                  key={idx}
-                  onClick={() => setSelectedIdx(idx)}
+                  key={traceId}
+                  onClick={() => setSelectedId(traceId)}
                   style={{
                     padding: '10px 12px',
                     borderBottom: '1px solid var(--border)',
@@ -188,15 +197,17 @@ export default function TracesViewer() {
                 </table>
               </div>
 
-              <TraceDetailsCard title="Input Message" value={selected.input} />
+              <TraceDetailsCard key={`input-${selectedId}`} title="Input Message" value={selected.input} />
 
               <TraceDetailsCard
+                key={`sysprompt-${selectedId}`}
                 title="System Prompt Sent to LLM (Dynamic Enriched Context)"
                 value={selected.system_prompt}
                 codeFormat
               />
 
               <TraceDetailsCard
+                key={`rawresp-${selectedId}`}
                 title="Raw Model Response (Arguments to mutate_layout)"
                 value={JSON.stringify(selected.raw_response || {}, null, 2)}
                 codeFormat
@@ -204,6 +215,7 @@ export default function TracesViewer() {
 
               {selected.mutation && (
                 <TraceDetailsCard
+                  key={`mutation-${selectedId}`}
                   title="Final Clamped & Resolved Mutation Applied"
                   value={JSON.stringify(selected.mutation, null, 2)}
                   codeFormat

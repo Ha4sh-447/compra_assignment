@@ -13,7 +13,10 @@ from pydantic import BaseModel
 TRACES_FILE = Path(__file__).parent.parent / "data" / "traces.jsonl"
 
 
+import uuid
+
 class TraceItem(BaseModel):
+    id: Optional[str] = None
     timestamp: str
     latency_ms: float
     model: str
@@ -43,6 +46,7 @@ def add_trace(
 ) -> None:
     """Record a trace item to local traces.jsonl and in-memory log."""
     trace = TraceItem(
+        id=str(uuid.uuid4()),
         timestamp=datetime.now().isoformat(),
         latency_ms=round(latency_ms, 2),
         model=model,
@@ -79,7 +83,10 @@ def get_traces() -> list[dict]:
                 parsed = []
                 for line in lines[-MAX_IN_MEMORY:]:
                     if line.strip():
-                        parsed.append(json.loads(line))
+                        item = json.loads(line)
+                        if "id" not in item or not item["id"]:
+                            item["id"] = str(uuid.uuid4())
+                        parsed.append(item)
                 _in_memory_traces = list(reversed(parsed))
         except Exception:
             pass

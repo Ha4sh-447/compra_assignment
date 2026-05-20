@@ -38,6 +38,16 @@ export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvas
     );
   }
 
+  const truncateText = (text: string, w: number, fSize: number) => {
+    const charWidth = fSize * 0.55;
+    const maxChars = Math.floor((w - 8) / charWidth);
+    if (maxChars <= 3) return '';
+    if (text.length > maxChars) {
+      return text.slice(0, Math.max(0, maxChars - 3)) + '...';
+    }
+    return text;
+  };
+
   const renderNode = (el: LayoutElement) => {
     const x = el.x * scale;
     const y = el.y * scale;
@@ -54,6 +64,11 @@ export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvas
         const cy = y + h / 2;
         const rx = w / 2;
         const ry = h / 2;
+
+        const tag = el.semanticRole || el.name || el.type;
+        const tagText = truncateText(tag, w - 8, Math.max(7, Math.min(10, w / 10)));
+        const idText = truncateText(`[${el.id}]`, w - 8, Math.max(6, Math.min(8, w / 12)));
+
         return (
           <g key={el.id}>
             <ellipse
@@ -67,21 +82,57 @@ export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvas
               strokeWidth={isMutated ? 2.5 : 1}
               className={isMutated ? 'node-highlight' : ''}
             />
-            <text
-              x={cx}
-              y={cy}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fill={color}
-              fontSize={Math.max(8, Math.min(11, w / 8))}
-              className="node-label"
-            >
-              {el.semanticRole || el.name || el.type}
-            </text>
+            {tagText && (
+              <text
+                x={cx}
+                y={idText ? cy - 5 : cy}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fill={color}
+                fontSize={Math.max(7, Math.min(10, w / 10))}
+                className="node-label"
+              >
+                {tagText}
+              </text>
+            )}
+            {idText && (
+              <text
+                x={cx}
+                y={cy + 7}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fill={color}
+                fillOpacity={0.7}
+                fontSize={Math.max(6, Math.min(8, w / 12))}
+                className="node-label"
+              >
+                {idText}
+              </text>
+            )}
           </g>
         );
       }
     }
+
+    const rawContent = (el.data as Record<string, string>)?.content || '';
+    const displayContent = rawContent ? `"${rawContent.replace(/\n/g, ' ')}"` : '';
+
+    const lines: { text: string; opacity: number; size: number }[] = [];
+    const tag = el.semanticRole || el.name || el.type;
+    const tagLine = fontSize ? `${tag} (${fontSize}px)` : tag;
+
+    lines.push({ text: tagLine, opacity: 1.0, size: Math.max(7.5, Math.min(10, w / 12)) });
+    lines.push({ text: `[${el.id}]`, opacity: 0.65, size: Math.max(6.5, Math.min(8.5, w / 14)) });
+
+    if (el.type === 'text' && displayContent) {
+      lines.push({ text: displayContent, opacity: 0.85, size: Math.max(6.5, Math.min(8.5, w / 16)) });
+    }
+
+    const lineSpacing = 11;
+    const startY = y + 11;
+    const linesToRender = lines.filter((_, idx) => {
+      return (idx * lineSpacing + 10) <= h;
+    });
 
     return (
       <g key={el.id}>
@@ -98,30 +149,23 @@ export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvas
           rx={2}
           className={`node-rect ${isMutated ? 'node-highlight' : ''}`}
         />
-        {w > 30 && h > 12 && (
-          <text
-            x={x + 4}
-            y={y + Math.min(14, h - 2)}
-            fill={color}
-            fontSize={Math.max(7, Math.min(10, w / 12))}
-            className="node-label"
-          >
-            {el.semanticRole || el.name || el.type}
-            {fontSize ? ` (${fontSize}px)` : ''}
-          </text>
-        )}
-        {el.type === 'text' && w > 50 && h > 24 && (
-          <text
-            x={x + 4}
-            y={y + Math.min(26, h - 2)}
-            fill={color}
-            fillOpacity={0.6}
-            fontSize={Math.max(6, Math.min(9, w / 16))}
-            className="node-label"
-          >
-            {((el.data as Record<string, string>)?.content || '').replace(/\n/g, ' ').slice(0, 30)}
-          </text>
-        )}
+        {w > 30 && linesToRender.map((line, idx) => {
+          const truncated = truncateText(line.text, w, line.size);
+          if (!truncated) return null;
+          return (
+            <text
+              key={idx}
+              x={x + 4}
+              y={startY + idx * lineSpacing}
+              fill={color}
+              fillOpacity={line.opacity}
+              fontSize={line.size}
+              className="node-label"
+            >
+              {truncated}
+            </text>
+          );
+        })}
       </g>
     );
   };
