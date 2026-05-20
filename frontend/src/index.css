@@ -350,6 +350,41 @@ body {
   min-height: 0;
 }
 
+.preview-region {
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+}
+
+.lower-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.resizer-horizontal {
+  height: 8px;
+  cursor: row-resize;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+}
+
+.resizer-horizontal:hover {
+  background: linear-gradient(180deg, transparent, rgba(108, 92, 231, 0.18), transparent);
+}
+
+.resizer-vertical {
+  width: 8px;
+  cursor: col-resize;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+}
+
+.resizer-vertical:hover {
+  background: linear-gradient(90deg, transparent, rgba(108, 92, 231, 0.18), transparent);
+}
+
 .canvas-container {
   position: relative;
   background: #ffffff;
@@ -381,21 +416,14 @@ body {
   pointer-events: none;
 }
 
-.node-highlight {
-  animation: highlightPulse 1.5s ease-out;
-}
-
-@keyframes highlightPulse {
-  0% { stroke-width: 3; stroke-opacity: 1; }
-  100% { stroke-width: 0; stroke-opacity: 0; }
-}
 
 /* ── JSON Viewer ────────────────────────────────────────────── */
 .json-viewer-container {
-  height: 280px;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .json-viewer {

@@ -4,7 +4,6 @@ import { getRoleColor } from '../lib/colors';
 
 interface PreviewCanvasProps {
   layout: LayoutState | null;
-  mutatedIds?: string[];
   selectedElementId?: string | null;
   onElementClick?: (elementId: string) => void;
 }
@@ -14,7 +13,6 @@ const DISPLAY_MAX_H = 600;
 
 export default function PreviewCanvas({
   layout,
-  mutatedIds = [],
   selectedElementId,
   onElementClick,
 }: PreviewCanvasProps) {
@@ -87,7 +85,6 @@ export default function PreviewCanvas({
     const w = el.width * scale;
     const h = el.height * scale;
     const color = getRoleColor(el.semanticRole, el.type);
-    const isMutated = mutatedIds.includes(el.id);
     const isSelected = selectedElementId === el.id;
     const fontSize = (el.style as Record<string, Record<string, number>>)?.visual?.fontSize;
 
@@ -117,8 +114,7 @@ export default function PreviewCanvas({
               fill={color}
               fillOpacity={isSelected ? 0.4 : 0.25}
               stroke={isSelected ? '#fff' : color}
-              strokeWidth={isSelected ? 2.5 : isMutated ? 2.5 : 1}
-              className={isMutated ? 'node-highlight' : ''}
+              strokeWidth={isSelected ? 2.5 : 1}
             />
             {w > 30 && (
               <text
@@ -181,10 +177,10 @@ export default function PreviewCanvas({
           fill={color}
           fillOpacity={isSelected ? 0.35 : el.type === 'image' ? 0.15 : 0.2}
           stroke={isSelected ? '#fff' : color}
-          strokeWidth={isSelected ? 2.5 : isMutated ? 2.5 : 0.8}
+          strokeWidth={isSelected ? 2.5 : 0.8}
           strokeDasharray={el.locked ? '4 2' : 'none'}
           rx={2}
-          className={`node-rect ${isMutated ? 'node-highlight' : ''}`}
+          className="node-rect"
         />
         {/* Tag label */}
         {w > 30 && h > 10 && (
@@ -253,18 +249,6 @@ export default function PreviewCanvas({
             {selectedElement
               ? `Selected: ${selectedElement.semanticRole || selectedElement.name || selectedElement.type}`
               : 'Selected: none'}
-          </span>
-          <span
-            style={{
-              padding: '4px 8px',
-              borderRadius: '999px',
-              background: 'rgba(0, 0, 0, 0.45)',
-              color: 'var(--text-secondary)',
-              fontSize: '10px',
-              border: '1px solid var(--border)',
-            }}
-          >
-            Mutated: {mutatedIds.length}
           </span>
         </div>
         <svg

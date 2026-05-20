@@ -61,7 +61,7 @@ export default function TracesViewer() {
     : '';
 
   return (
-    <div className="json-viewer-container" style={{ height: '360px' }}>
+    <div className="json-viewer-container" style={{ height: '100%' }}>
       <div className="pane-header">
         <span className="dot" style={{ backgroundColor: 'var(--success)' }}></span>
         Agent Traces (LangSmith Local Log)
