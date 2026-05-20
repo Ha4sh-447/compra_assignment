@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import ChatPane from './components/ChatPane';
 import PreviewCanvas from './components/PreviewCanvas';
 import JsonViewer from './components/JsonViewer';
 import TracesViewer from './components/TracesViewer';
+import ElementInspector from './components/ElementInspector';
 import { sendChatMessage, undoMutation, redoMutation, getLayout } from './lib/api';
 import type { LayoutState } from './lib/api';
 import './index.css';
@@ -19,6 +20,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [mutatedIds, setMutatedIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'json' | 'traces'>('json');
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
 
   useEffect(() => {
     getLayout().then((data) => {
@@ -88,6 +90,15 @@ export default function App() {
     }
   }, [sessionId]);
 
+  const handleElementClick = useCallback((elementId: string) => {
+    setSelectedElementId(elementId || null);
+  }, []);
+
+  const selectedElement = useMemo(() => {
+    if (!layout || !selectedElementId) return null;
+    return layout.elements.find((el) => el.id === selectedElementId) || null;
+  }, [layout, selectedElementId]);
+
   return (
     <div className="app">
       <ChatPane
@@ -98,7 +109,7 @@ export default function App() {
         loading={loading}
       />
 
-      <div className="pane pane-right">
+      <div className="pane pane-center">
         <div className="app-header">
           <h1>Layout Agent</h1>
           {sessionId && (
@@ -106,7 +117,12 @@ export default function App() {
           )}
         </div>
 
-        <PreviewCanvas layout={layout} mutatedIds={mutatedIds} />
+        <PreviewCanvas
+          layout={layout}
+          mutatedIds={mutatedIds}
+          selectedElementId={selectedElementId}
+          onElementClick={handleElementClick}
+        />
 
         <div className="tab-bar">
           <div
@@ -129,7 +145,17 @@ export default function App() {
           <TracesViewer />
         )}
       </div>
+
+      <div className="pane pane-inspector">
+        <div className="pane-header">
+          <span className="dot" style={{ backgroundColor: 'var(--info)' }} />
+          Element Inspector
+        </div>
+        <ElementInspector
+          element={selectedElement}
+          onClose={() => setSelectedElementId(null)}
+        />
+      </div>
     </div>
   );
 }
-

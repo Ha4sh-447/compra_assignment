@@ -5,12 +5,19 @@ import { getRoleColor } from '../lib/colors';
 interface PreviewCanvasProps {
   layout: LayoutState | null;
   mutatedIds?: string[];
+  selectedElementId?: string | null;
+  onElementClick?: (elementId: string) => void;
 }
 
 const DISPLAY_MAX_W = 500;
 const DISPLAY_MAX_H = 600;
 
-export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvasProps) {
+export default function PreviewCanvas({
+  layout,
+  mutatedIds = [],
+  selectedElementId,
+  onElementClick,
+}: PreviewCanvasProps) {
   const { scale, displayW, displayH, elements } = useMemo(() => {
     if (!layout) return { scale: 1, displayW: 400, displayH: 400, elements: [] };
 
@@ -28,6 +35,11 @@ export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvas
     };
   }, [layout]);
 
+  const selectedElement = useMemo(() => {
+    if (!layout || !selectedElementId) return null;
+    return layout.elements.find((el) => el.id === selectedElementId) || null;
+  }, [layout, selectedElementId]);
+
   if (!layout) {
     return (
       <div className="preview-area">
@@ -38,14 +50,35 @@ export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvas
     );
   }
 
-  const truncateText = (text: string, w: number, fSize: number) => {
-    const charWidth = fSize * 0.55;
-    const maxChars = Math.floor((w - 8) / charWidth);
-    if (maxChars <= 3) return '';
-    if (text.length > maxChars) {
-      return text.slice(0, Math.max(0, maxChars - 3)) + '...';
+  /**
+   * Word-wrap text into multiple lines that fit within a given pixel width.
+   * Returns an array of line strings.
+   */
+  const wrapText = (text: string, maxWidth: number, charWidth: number): string[] => {
+    if (maxWidth <= 0 || charWidth <= 0) return [];
+    const maxCharsPerLine = Math.floor(maxWidth / charWidth);
+    if (maxCharsPerLine <= 2) return [];
+
+    const words = text.split(/\s+/);
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      if (testLine.length <= maxCharsPerLine) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) lines.push(currentLine);
+        // If a single word exceeds the line, truncate it
+        if (word.length > maxCharsPerLine) {
+          currentLine = word.slice(0, maxCharsPerLine - 1) + '…';
+        } else {
+          currentLine = word;
+        }
+      }
     }
-    return text;
+    if (currentLine) lines.push(currentLine);
+    return lines;
   };
 
   const renderNode = (el: LayoutElement) => {
@@ -55,7 +88,13 @@ export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvas
     const h = el.height * scale;
     const color = getRoleColor(el.semanticRole, el.type);
     const isMutated = mutatedIds.includes(el.id);
+    const isSelected = selectedElementId === el.id;
     const fontSize = (el.style as Record<string, Record<string, number>>)?.visual?.fontSize;
+
+    const handleClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onElementClick?.(el.id);
+    };
 
     if (el.type === 'shape') {
       const isCircle = (el.data as Record<string, string>)?.shapeType === 'circle';
@@ -66,47 +105,32 @@ export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvas
         const ry = h / 2;
 
         const tag = el.semanticRole || el.name || el.type;
-        const tagText = truncateText(tag, w - 8, Math.max(7, Math.min(10, w / 10)));
-        const idText = truncateText(`[${el.id}]`, w - 8, Math.max(6, Math.min(8, w / 12)));
+        const labelSize = Math.max(7, Math.min(10, w / 10));
 
         return (
-          <g key={el.id}>
+          <g key={el.id} onClick={handleClick} style={{ cursor: 'pointer' }}>
             <ellipse
               cx={cx}
               cy={cy}
               rx={rx}
               ry={ry}
               fill={color}
-              fillOpacity={0.25}
-              stroke={color}
-              strokeWidth={isMutated ? 2.5 : 1}
+              fillOpacity={isSelected ? 0.4 : 0.25}
+              stroke={isSelected ? '#fff' : color}
+              strokeWidth={isSelected ? 2.5 : isMutated ? 2.5 : 1}
               className={isMutated ? 'node-highlight' : ''}
             />
-            {tagText && (
+            {w > 30 && (
               <text
                 x={cx}
-                y={idText ? cy - 5 : cy}
+                y={cy}
                 textAnchor="middle"
                 dominantBaseline="central"
                 fill={color}
-                fontSize={Math.max(7, Math.min(10, w / 10))}
+                fontSize={labelSize}
                 className="node-label"
               >
-                {tagText}
-              </text>
-            )}
-            {idText && (
-              <text
-                x={cx}
-                y={cy + 7}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill={color}
-                fillOpacity={0.7}
-                fontSize={Math.max(6, Math.min(8, w / 12))}
-                className="node-label"
-              >
-                {idText}
+                {tag}
               </text>
             )}
           </g>
@@ -114,60 +138,90 @@ export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvas
       }
     }
 
-    const rawContent = (el.data as Record<string, string>)?.content || '';
-    const displayContent = rawContent ? `"${rawContent.replace(/\n/g, ' ')}"` : '';
-
-    const lines: { text: string; opacity: number; size: number }[] = [];
+    // Build label lines: tag, content text (word-wrapped to fill available space)
+    const rawContent = ((el.data as Record<string, string>)?.content || '').replace(/\n/g, ' ').trim();
     const tag = el.semanticRole || el.name || el.type;
-    const tagLine = fontSize ? `${tag} (${fontSize}px)` : tag;
+    const tagLine = fontSize ? `${tag} · ${fontSize}px` : tag;
 
-    lines.push({ text: tagLine, opacity: 1.0, size: Math.max(7.5, Math.min(10, w / 12)) });
-    lines.push({ text: `[${el.id}]`, opacity: 0.65, size: Math.max(6.5, Math.min(8.5, w / 14)) });
+    const tagSize = Math.max(7, Math.min(9.5, w / 14));
+    const contentSize = Math.max(6.5, Math.min(9, w / 16));
+    const lineHeight = contentSize + 3;
 
-    if (el.type === 'text' && displayContent) {
-      lines.push({ text: displayContent, opacity: 0.85, size: Math.max(6.5, Math.min(8.5, w / 16)) });
+    // Calculate how many content lines we can fit
+    const tagLineHeight = tagSize + 4;
+    const availableHeight = h - tagLineHeight - 6; // padding
+    const maxContentLines = Math.max(0, Math.floor(availableHeight / lineHeight));
+
+    // Word-wrap the content text
+    const charWidth = contentSize * 0.55;
+    const usableWidth = w - 8;
+    let contentLines: string[] = [];
+    if (rawContent && usableWidth > 20) {
+      contentLines = wrapText(rawContent, usableWidth, charWidth);
+      if (contentLines.length > maxContentLines) {
+        contentLines = contentLines.slice(0, maxContentLines);
+        // Add ellipsis to the last visible line
+        if (contentLines.length > 0) {
+          const last = contentLines[contentLines.length - 1];
+          const maxChars = Math.floor(usableWidth / charWidth);
+          contentLines[contentLines.length - 1] = last.length > maxChars - 1
+            ? last.slice(0, maxChars - 1) + '…'
+            : last + '…';
+        }
+      }
     }
 
-    const lineSpacing = 11;
-    const startY = y + 11;
-    const linesToRender = lines.filter((_, idx) => {
-      return (idx * lineSpacing + 10) <= h;
-    });
-
     return (
-      <g key={el.id}>
+      <g key={el.id} onClick={handleClick} style={{ cursor: 'pointer' }}>
         <rect
           x={x}
           y={y}
           width={Math.max(w, 2)}
           height={Math.max(h, 2)}
           fill={color}
-          fillOpacity={el.type === 'image' ? 0.15 : 0.2}
-          stroke={color}
-          strokeWidth={isMutated ? 2.5 : 0.8}
+          fillOpacity={isSelected ? 0.35 : el.type === 'image' ? 0.15 : 0.2}
+          stroke={isSelected ? '#fff' : color}
+          strokeWidth={isSelected ? 2.5 : isMutated ? 2.5 : 0.8}
           strokeDasharray={el.locked ? '4 2' : 'none'}
           rx={2}
           className={`node-rect ${isMutated ? 'node-highlight' : ''}`}
         />
-        {w > 30 && linesToRender.map((line, idx) => {
-          const truncated = truncateText(line.text, w, line.size);
-          if (!truncated) return null;
-          return (
-            <text
-              key={idx}
-              x={x + 4}
-              y={startY + idx * lineSpacing}
-              fill={color}
-              fillOpacity={line.opacity}
-              fontSize={line.size}
-              className="node-label"
-            >
-              {truncated}
-            </text>
-          );
-        })}
+        {/* Tag label */}
+        {w > 30 && h > 10 && (
+          <text
+            x={x + 4}
+            y={y + tagSize + 2}
+            fill={color}
+            fontSize={tagSize}
+            fontWeight={600}
+            className="node-label"
+          >
+            {tagLine.length > Math.floor(usableWidth / (tagSize * 0.55))
+              ? tagLine.slice(0, Math.floor(usableWidth / (tagSize * 0.55)) - 1) + '…'
+              : tagLine}
+          </text>
+        )}
+        {/* Content lines */}
+        {w > 30 && contentLines.map((line, idx) => (
+          <text
+            key={idx}
+            x={x + 4}
+            y={y + tagLineHeight + 4 + idx * lineHeight}
+            fill={color}
+            fillOpacity={0.8}
+            fontSize={contentSize}
+            className="node-label"
+          >
+            {line}
+          </text>
+        ))}
       </g>
     );
+  };
+
+  const handleCanvasClick = () => {
+    // Clicking empty canvas area deselects
+    onElementClick?.('');
   };
 
   return (
@@ -176,10 +230,48 @@ export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvas
         <span className="canvas-label">
           {layout.canvas_width}×{layout.canvas_height}
         </span>
+        <div
+          style={{
+            position: 'absolute',
+            left: 8,
+            bottom: 8,
+            display: 'flex',
+            gap: '6px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span
+            style={{
+              padding: '4px 8px',
+              borderRadius: '999px',
+              background: 'rgba(0, 0, 0, 0.45)',
+              color: 'var(--text-secondary)',
+              fontSize: '10px',
+              border: '1px solid var(--border)',
+            }}
+          >
+            {selectedElement
+              ? `Selected: ${selectedElement.semanticRole || selectedElement.name || selectedElement.type}`
+              : 'Selected: none'}
+          </span>
+          <span
+            style={{
+              padding: '4px 8px',
+              borderRadius: '999px',
+              background: 'rgba(0, 0, 0, 0.45)',
+              color: 'var(--text-secondary)',
+              fontSize: '10px',
+              border: '1px solid var(--border)',
+            }}
+          >
+            Mutated: {mutatedIds.length}
+          </span>
+        </div>
         <svg
           width={displayW}
           height={displayH}
           viewBox={`0 0 ${displayW} ${displayH}`}
+          onClick={handleCanvasClick}
         >
           <rect
             width={displayW}
@@ -193,4 +285,3 @@ export default function PreviewCanvas({ layout, mutatedIds = [] }: PreviewCanvas
     </div>
   );
 }
-

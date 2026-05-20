@@ -7,6 +7,11 @@ export default function TracesViewer() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedIdRef = useRef<string | null>(null);
 
+  const getTraceId = useCallback(
+    (trace: TraceItem, index: number) => trace.id || `fallback-${index}`,
+    [],
+  );
+
   // Keep the ref in sync so the polling callback always has the latest value
   useEffect(() => {
     selectedIdRef.current = selectedId;
@@ -16,15 +21,20 @@ export default function TracesViewer() {
     try {
       const data = await getTraces();
       setTraces(data);
-      // Only auto-select the first trace when nothing is selected yet
-      if (data.length > 0 && selectedIdRef.current === null) {
-        const firstId = data[0].id || 'fallback-0';
-        setSelectedId(firstId);
+      if (data.length === 0) {
+        setSelectedId(null);
+        return;
+      }
+
+      const traceIds = data.map((t, idx) => getTraceId(t, idx));
+      const current = selectedIdRef.current;
+      if (!current || !traceIds.includes(current)) {
+        setSelectedId(traceIds[0]);
       }
     } catch (err) {
       console.error('Failed to load traces', err);
     }
-  }, []);
+  }, [getTraceId]);
 
   useEffect(() => {
     loadTraces();
@@ -43,7 +53,12 @@ export default function TracesViewer() {
     }
   };
 
-  const selected = selectedId !== null ? traces.find(t => (t.id || 'fallback-0') === selectedId) : null;
+  const selected = selectedId !== null
+    ? traces.find((t, idx) => getTraceId(t, idx) === selectedId)
+    : null;
+  const historyText = selected?.history?.length
+    ? selected.history.map((entry) => `${entry.role}: ${entry.content}`).join('\n\n')
+    : '';
 
   return (
     <div className="json-viewer-container" style={{ height: '360px' }}>
@@ -198,6 +213,13 @@ export default function TracesViewer() {
               </div>
 
               <TraceDetailsCard key={`input-${selectedId}`} title="Input Message" value={selected.input} />
+
+              <TraceDetailsCard
+                key={`history-${selectedId}`}
+                title="Conversation History"
+                value={historyText}
+                codeFormat
+              />
 
               <TraceDetailsCard
                 key={`sysprompt-${selectedId}`}

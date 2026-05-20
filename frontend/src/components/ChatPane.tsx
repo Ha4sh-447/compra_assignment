@@ -15,7 +15,14 @@ interface ChatPaneProps {
 
 export default function ChatPane({ messages, onSend, onUndo, onRedo, loading }: ChatPaneProps) {
   const [input, setInput] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const examplePrompts = [
+    'Convert this design to 9:16',
+    'Move the headline to the top',
+    'Make the headline smaller',
+    'Center the product image',
+  ];
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -49,14 +56,35 @@ export default function ChatPane({ messages, onSend, onUndo, onRedo, loading }: 
               Layout Agent
             </div>
             <div>Try instructions like:</div>
-            <div style={{ fontStyle: 'italic', color: 'var(--accent)', marginTop: '4px' }}>
-              "Convert this design to 9:16"
-            </div>
-            <div style={{ fontStyle: 'italic', color: 'var(--accent)' }}>
-              "Move the headline to the top"
-            </div>
-            <div style={{ fontStyle: 'italic', color: 'var(--accent)' }}>
-              "Make the headline smaller"
+            <div style={{
+              marginTop: '10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              alignItems: 'center',
+            }}>
+              {examplePrompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => {
+                    setInput(prompt);
+                    inputRef.current?.focus();
+                  }}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '999px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-elevated)',
+                    color: 'var(--text-secondary)',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {prompt}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -92,6 +120,7 @@ export default function ChatPane({ messages, onSend, onUndo, onRedo, loading }: 
               placeholder="Describe a layout change..."
               disabled={loading}
               autoFocus
+              ref={inputRef}
             />
             <button type="submit" className="btn btn-primary" disabled={loading || !input.trim()}>
               Send
